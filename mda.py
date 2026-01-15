@@ -129,19 +129,11 @@ def extend(label, edge_cost, v):
 
 
 def next_candidate_label(v, predecessors, L, edge_cost, last):
-    """
-    Trova il prossimo candidato label lessicograficamente minimo per il nodo v.
-
-    Correzione: aggiorna last[(u,v)] solo quando:
-    - La label è dominata o equivalente (non serve ricontrollarla)
-    - La label è scelta come best finale
-    """
     best = None
-    best_pred = None  # predecessore che ha prodotto il best
-    best_k = None     # indice della label che ha prodotto il best
+    best_pred = None
+    best_k = None
 
-    # Per ogni predecessore, salvo l'indice della prima label valida (non dominata, non equivalente)
-    candidate_info = {}  # {u: (k, cand)} per ogni predecessore con un candidato valido
+    candidate_info = {}
 
     logger.debug(f"  [nextCandidate] Searching candidate for node {v}")
     logger.debug(f"    Predecessors: {predecessors[v]}")

@@ -1,14 +1,11 @@
-MDA demo project
-===============
+MDA Demo Project
 
-Demo del Multiobjective Dijkstra Algorithm (MDA)
+This project provides a minimal and clear demonstration of a basic algorithm execution framework, designed to support and test the Multiobjective Dijkstra Algorithm (MDA).
 
-- 2 obiettivi
-- 10 nodi
-- restituisce tutte le soluzioni Pareto–ottimali
+project structure
+.
+├── main.py          # Entry point
+├── mda.py     # Core algorithm logic
+└── README.md
 
-Esecuzione:
-    python main.py
-
-L’MDA è completamente parametrico nel numero di obiettivi:
-N entra solo nella dimensione del vettore dei costi, non nella logica.
+python main.py

@@ -25,7 +25,6 @@ def build_instance_2cost():
 def build_demo_graph(N):
     V = list(range(10))
 
-    # Ogni arco ha N costi
     edge_cost = {
         (0,1):(1,5,2)[:N], (0,2):(2,2,3)[:N],
         (1,3):(2,2,2)[:N], (1,4):(3,1,4)[:N],
@@ -47,36 +46,36 @@ def build_demo_graph(N):
 
 
 if __name__ == "__main__":
-    # Configura il logging (crea file in ./logs/)
+    # Configure logging (log files are created in ./logs/)
     setup_logging()
 
-    N = 2   # numero di obiettivi
+    N = 2   # number of objectives
 
     V, predecessors, successors, edge_cost = build_instance_2cost()
 
     logger.info("=" * 60)
-    logger.info("GRAFO:")
-    logger.info(f"Nodi: {V}")
-    logger.info(f"Archi e costi: {edge_cost}")
+    logger.info("GRAPH DEFINITION")
+    logger.info(f"Nodes: {V}")
+    logger.info(f"Edges with cost vectors: {edge_cost}")
     logger.info("=" * 60)
 
-    # Esegui l'algoritmo
+    # Run the algorithm
     L = mda(V, 0, predecessors, successors, edge_cost)
 
     logger.info("=" * 60)
-    logger.info("RISULTATO FINALE - Soluzioni Pareto-ottimali:")
+    logger.info("FINAL RESULT - Pareto-optimal solutions")
     logger.info("=" * 60)
 
     for v in sorted(L):
         costs = [lab.cost for lab in L[v]]
-        logger.info(f"Nodo {v}: {costs}")
+        logger.info(f"Node {v}: {costs}")
 
-    # Stampa anche su console in formato leggibile
+    # Also print results to console in a readable format
     print("\n" + "=" * 60)
-    print("RISULTATO FINALE:")
+    print("FINAL RESULT")
     print("=" * 60)
     for v in sorted(L):
-        print(f"Nodo {v}:")
+        print(f"Node {v}:")
         for lab in L[v]:
-            print(f"  costo = {lab.cost}")
+            print(f"  cost = {lab.cost}")
         print()
