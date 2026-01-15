@@ -6,15 +6,7 @@ The goal is to offer a small, self-contained example that highlights how to set 
 
 ---
 
-## Project Structure
 
-
-.
-├── main.py          # Entry point
-├── mda.py     # Core algorithm logic
-└── README.md
-
----
 
 ## Requirements
 
