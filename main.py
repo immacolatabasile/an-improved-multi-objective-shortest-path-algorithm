@@ -1,4 +1,28 @@
 from mda import mda, setup_logging, logger
+from visualize import visualize_graph
+
+def reconstruct_path(label):
+    path = []
+    current = label
+
+    while current is not None:
+        path.append(current.node)
+        current = current.pred
+
+    return list(reversed(path))
+
+
+def extract_pareto_paths(L, target):
+    """
+    Returns a list of paths, one for each Pareto-optimal label.
+    """
+    paths = []
+
+    for lab in L[target]:
+        path = reconstruct_path(lab)
+        paths.append((path, lab.cost))
+
+    return paths
 
 
 def build_instance_2cost():
@@ -62,13 +86,13 @@ if __name__ == "__main__":
     # Run the algorithm
     L = mda(V, 0, predecessors, successors, edge_cost)
 
-    logger.info("=" * 60)
-    logger.info("FINAL RESULT - Pareto-optimal solutions")
-    logger.info("=" * 60)
+    logger.debug("=" * 60)
+    logger.debug("FINAL RESULT - Pareto-optimal solutions")
+    logger.debug("=" * 60)
 
     for v in sorted(L):
         costs = [lab.cost for lab in L[v]]
-        logger.info(f"Node {v}: {costs}")
+        logger.debug(f"Node {v}: {costs}")
 
     # Also print results to console in a readable format
     print("\n" + "=" * 60)
@@ -79,3 +103,16 @@ if __name__ == "__main__":
         for lab in L[v]:
             print(f"  cost = {lab.cost}")
         print()
+
+    target = 3
+
+    pareto_paths_with_costs = extract_pareto_paths(L, target)
+
+    # separiamo solo i path per il plot
+    pareto_paths = [p for p, _ in pareto_paths_with_costs]
+
+    logger.debug(f"Pareto-optimal paths to node {target}:")
+    for path, cost in pareto_paths_with_costs:
+        logger.debug(f"Path: {path}, cost: {cost}")
+
+    visualize_graph(V, edge_cost, pareto_paths=pareto_paths)
