@@ -1,5 +1,5 @@
 from mda import mda, setup_logging, logger
-from visualize import visualize_graph
+from visualize import visualize_graph_with_labels, visualize_label_graph
 
 def reconstruct_path(label):
     path = []
@@ -73,7 +73,15 @@ if __name__ == "__main__":
     # Configure logging (log files are created in ./logs/)
     setup_logging()
 
+    # ============================
+    # Configuration
+    # ============================
     N = 2   # number of objectives
+
+    # Parallel dominance check option:
+    # - False: Classic sequential MDA (default)
+    # - True:  Version 1 parallel MDA (parallel dominance checking)
+    PARALLEL_DOMINANCE = False
 
     V, predecessors, successors, edge_cost = build_instance_2cost()
 
@@ -81,10 +89,11 @@ if __name__ == "__main__":
     logger.info("GRAPH DEFINITION")
     logger.info(f"Nodes: {V}")
     logger.info(f"Edges with cost vectors: {edge_cost}")
+    logger.info(f"Parallel dominance: {PARALLEL_DOMINANCE}")
     logger.info("=" * 60)
 
     # Run the algorithm
-    L = mda(V, 0, predecessors, successors, edge_cost)
+    L = mda(V, 0, predecessors, successors, edge_cost, parallel_dominance=PARALLEL_DOMINANCE)
 
     logger.debug("=" * 60)
     logger.debug("FINAL RESULT - Pareto-optimal solutions")
@@ -101,18 +110,26 @@ if __name__ == "__main__":
     for v in sorted(L):
         print(f"Node {v}:")
         for lab in L[v]:
-            print(f"  cost = {lab.cost}")
+            print(f"  Label {lab.id}: cost={lab.cost}, pred={lab.pred.id if lab.pred else None}")
         print()
 
     target = 3
 
-    pareto_paths_with_costs = extract_pareto_paths(L, target)
-
-    # separiamo solo i path per il plot
-    pareto_paths = [p for p, _ in pareto_paths_with_costs]
+    # Get the labels for the target node
+    target_labels = L[target]
 
     logger.debug(f"Pareto-optimal paths to node {target}:")
-    for path, cost in pareto_paths_with_costs:
-        logger.debug(f"Path: {path}, cost: {cost}")
+    for lab in target_labels:
+        path = reconstruct_path(lab)
+        logger.debug(f"Label {lab.id}: path={path}, cost={lab.cost}")
 
-    visualize_graph(V, edge_cost, pareto_paths=pareto_paths)
+    print(f"Pareto-optimal paths to node {target}:")
+    for lab in target_labels:
+        path = reconstruct_path(lab)
+        print(f"  Path (Label {lab.id}): {path} -> cost = {lab.cost}")
+
+    # Label-aware visualization
+    visualize_graph_with_labels(V, edge_cost, labels=target_labels)
+
+    # Optional: visualize the label graph
+    # visualize_label_graph(L, target=target)
