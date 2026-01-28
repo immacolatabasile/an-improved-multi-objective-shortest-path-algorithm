@@ -5,6 +5,8 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
+from config import mda_config, logging_config
+
 
 # ----------------------------
 # Setup logging
@@ -13,13 +15,13 @@ def load_logging_config(config_path="logging_config.ini"):
     """Carica la configurazione del logging da file .ini"""
     config = configparser.ConfigParser()
 
-    # Valori di default
+    # Valori di default (from centralized config)
     defaults = {
-        'file_level': 'INFO',
-        'console_level': 'INFO',
-        'log_dir': 'logs',
-        'file_enabled': 'true',
-        'console_enabled': 'true'
+        'file_level': logging_config.file_level,
+        'console_level': logging_config.console_level,
+        'log_dir': logging_config.log_dir,
+        'file_enabled': str(logging_config.file_enabled).lower(),
+        'console_enabled': str(logging_config.console_enabled).lower()
     }
 
     if os.path.exists(config_path):
@@ -93,13 +95,17 @@ logger = logging.getLogger("mda")
 class Label:
     _id_counter = 0
 
-    def __init__(self, node, cost, pred=None):
+    def __init__(self, node, cost, label_pre=None):
         self.id = Label._id_counter
         Label._id_counter += 1
 
         self.node = node      # nodo corrente
         self.cost = tuple(cost)  # vettore dei costi (tuple)
-        self.pred = pred      # label precedente (per ricostruire il cammino)
+        self.label_pre = label_pre      # label precedente (per ricostruire il cammino)
+
+    def __repr__(self):
+        pred_id = self.label_pre.id if self.label_pre else None
+        return f"Label(id={self.id}, node={self.node}, cost={self.cost}, pred={pred_id})"
 
 
 # ----------------------------
@@ -109,6 +115,10 @@ def dominates(a, b):
     """
     Check if cost vector a dominates cost vector b.
     a dominates b if: a[i] <= b[i] for all i AND a[j] < b[j] for at least one j
+
+   Spiegazione: a domina b se e solo se:
+    *** a è uguale o migliore in tutti gli obiettivi
+    *** a è strettamente migliore in almeno un obiettivo
     """
     return all(x <= y for x, y in zip(a, b)) and any(x < y for x, y in zip(a, b))
 
@@ -151,7 +161,7 @@ def is_dominated_or_equivalent_sequential(label, labels):
 # Parallel dominance checks (Version 1 parallel MDA)
 # ----------------------------
 # Threshold: only use parallelism if Pareto front is large enough
-PARALLEL_THRESHOLD = 50
+PARALLEL_THRESHOLD = mda_config.parallel_threshold
 
 
 def is_dominated_parallel(label, labels, max_workers=None):
@@ -245,16 +255,21 @@ def extend(label, edge_cost, v):
     return Label(v, new_cost, label)
 
 
-def next_candidate_label(v, predecessors, L, edge_cost, last, parallel_dominance=False):
+def next_candidate_label(v,
+                         predecessors,
+                         L,
+                         edge_cost,
+                         last_processed_label_index_dict,
+                         parallel_dominance=False):
     """
     Find the next candidate label for node v.
 
     Args:
         v: Target node
-        predecessors: Dict of predecessor lists
+        predecessors: Dict of predecessor lists (Q)
         L: Dict of permanent labels per node
         edge_cost: Dict of edge costs
-        last: Dict of last processed indices
+        last_processed_label_index_dict: Dict of last processed indices
         parallel_dominance: If True, use parallel dominance checking
     """
     best = None
@@ -268,28 +283,34 @@ def next_candidate_label(v, predecessors, L, edge_cost, last, parallel_dominance
     logger.debug(f"    L[{v}] current: {[(l.id, l.cost) for l in L[v]]}")
 
     for u in predecessors[v]:
-        logger.debug(f"    Exploring predecessor {u}, last[({u},{v})]={last[(u,v)]}, |L[{u}]|={len(L[u])}")
+        logger.debug(f"    Exploring predecessor {u}, last[({u},{v})]={last_processed_label_index_dict[(u, v)]}, |L[{u}]|={len(L[u])}")
         logger.debug(f"      L[{u}] = {[(l.id, l.cost) for l in L[u]]}")
 
         # Inner loop: find first valid label
-        for k in range(last[(u, v)], len(L[u])):
+        for k in range(last_processed_label_index_dict[(u, v)], len(L[u])):  #da dove eravamo rimasti
             lu = L[u][k]
-            cand = extend(lu, edge_cost[(u, v)], v)
+            cand = extend(lu, edge_cost[(u, v)], v) #creo nuova label che estende lu lungo (u,v)
 
             logger.debug(f"      k={k}: Label {lu.id} cost={lu.cost} -> cand Label {cand.id} cost={cand.cost}")
 
-            if is_dominated_or_equivalent(cand, L[v], parallel_dominance=parallel_dominance):
-                logger.debug(f"        Label {cand.id} dominated or equivalent, SKIP and update last")
+            if is_dominated_or_equivalent(cand, L[v], parallel_dominance=parallel_dominance): #dominato da L_v?
+                logger.debug(f"        Label {cand.id} dominated or equivalent, SKIP and update last") #estendiavanza indice
                 # Dominated/equivalent label: update last and continue
-                last[(u, v)] = k + 1
+                last_processed_label_index_dict[(u, v)] = k + 1
+                # Remark 1 del paper e implementato
+                # tramite l'array last[(u,v)]: non si riscansiona mai L[u] dall'
+                # inizio, ma si parte dall'ultimo indice processato. Questo e cio che rende
+                # l'MDA output-sensitive.
                 continue
             else:
-                logger.debug(f"        Label {cand.id} valid! Saving as candidate for predecessor {u}")
+                logger.debug(f" Label {cand.id} valid! Saving as candidate for predecessor {u}")
                 # Valid label found: save and move to next predecessor
-                candidate_info[u] = (k, cand)
-                break  # move to next predecessor
+                candidate_info[u] = (k, cand) #salva candidato
+                break
+                # move to next predecessor -> 1 valido ( si esce dal loop interno. La
+                 # ragione: L[u] e ordinato lessicograficamente, quindi il primo non-dominato e il lessicograficamente piu piccolo.                           )
 
-    # Choose best among all candidates
+    # Choose best among all candidates (scegli the lex_min)
     for u, (k, cand) in candidate_info.items():
         if best is None or cand.cost < best.cost:
             best = cand
@@ -299,7 +320,7 @@ def next_candidate_label(v, predecessors, L, edge_cost, last, parallel_dominance
 
     # Update last ONLY for the predecessor that produced the best
     if best_pred is not None:
-        last[(best_pred, v)] = best_k + 1
+        last_processed_label_index_dict[(best_pred, v)] = best_k + 1
         logger.debug(f"    Updating last[({best_pred},{v})] = {best_k + 1}")
 
     logger.debug(f"  [nextCandidate] Result for node {v}: Label {best.id if best else None}, cost={best.cost if best else None}")
@@ -338,8 +359,8 @@ def mda(V, s, predecessors, successors, edge_cost, parallel_dominance=False):
     last = {(u, v): 0 for (u, v) in edge_cost}
 
     # priority queue (semplice lista)
-    H = []
-    in_H = {}
+    H = []  #lista di labels
+    in_H = {}  #dizionario rispetto al nodo (manteniamo una sola label per nodo)
 
     dim = len(next(iter(edge_cost.values())))
     start = Label(s, (0,) * dim)
@@ -353,13 +374,13 @@ def mda(V, s, predecessors, successors, edge_cost, parallel_dominance=False):
         # estrai minimo lessicografico
         l = min(H, key=lambda x: x.cost)
         H.remove(l)
-        in_H.pop(l.node)
+        in_H.pop(l.node) # rimuove la label associata al nodo l.node
 
         v = l.node
 
         logger.debug(f"\n{'='*60}")
         logger.debug(f"ITERATION {iteration}")
-        logger.debug(f"Extracted: Label {l.id}, node={v}, cost={l.cost}, pred={l.pred.id if l.pred else None}")
+        logger.debug(f"Extracted: Label {l.id}, node={v}, cost={l.cost}, pred={l.label_pre.id if l.label_pre else None}")
         logger.debug(f"H after extraction: {[(lab.id, lab.node, lab.cost) for lab in H]}")
 
         L[v].append(l)

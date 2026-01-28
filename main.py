@@ -1,5 +1,6 @@
 from mda import mda, setup_logging, logger
 from visualize import visualize_graph_with_labels, visualize_label_graph
+from config import mda_config
 
 def reconstruct_path(label):
     path = []
@@ -7,7 +8,7 @@ def reconstruct_path(label):
 
     while current is not None:
         path.append(current.node)
-        current = current.pred
+        current = current.label_pre
 
     return list(reversed(path))
 
@@ -76,14 +77,14 @@ if __name__ == "__main__":
     # ============================
     # Configuration
     # ============================
-    N = 2   # number of objectives
+    N = mda_config.num_objectives
 
-    # Parallel dominance check option:
-    # - False: Classic sequential MDA (default)
-    # - True:  Version 1 parallel MDA (parallel dominance checking)
-    PARALLEL_DOMINANCE = False
+    # Parallel dominance check option (from config)
+    PARALLEL_DOMINANCE = mda_config.parallel_dominance
 
+    # Build instance
     V, predecessors, successors, edge_cost = build_instance_2cost()
+    #predecessors = Q
 
     logger.info("=" * 60)
     logger.info("GRAPH DEFINITION")
@@ -110,7 +111,7 @@ if __name__ == "__main__":
     for v in sorted(L):
         print(f"Node {v}:")
         for lab in L[v]:
-            print(f"  Label {lab.id}: cost={lab.cost}, pred={lab.pred.id if lab.pred else None}")
+            print(f"  Label {lab.id}: cost={lab.cost}, pred={lab.label_pre.id if lab.label_pre else None}")
         print()
 
     target = 3

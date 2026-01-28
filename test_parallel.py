@@ -8,6 +8,7 @@ Compares:
 
 import time
 from mda import mda, setup_logging, logger, Label
+from config import test_config
 
 
 def build_instance_2cost():
@@ -45,7 +46,7 @@ def build_larger_instance(num_nodes=20, num_objectives=3):
 
     # Create edges: each node connects to next 2-3 nodes
     import random
-    random.seed(42)  # Reproducibility
+    random.seed(test_config.random_seed)  # Reproducibility
 
     for u in range(num_nodes - 1):
         # Connect to next 1-3 nodes
@@ -67,7 +68,7 @@ def build_grid_instance(rows=10, cols=10, num_objectives=2):
     This structure tends to create exponentially many Pareto-optimal paths.
     """
     import random
-    random.seed(42)
+    random.seed(test_config.random_seed)
 
     V = []
     node_id = {}
@@ -124,7 +125,7 @@ def build_conflicting_objectives_instance(num_layers=8, nodes_per_layer=5, num_o
     objective worsens another.
     """
     import random
-    random.seed(42)
+    random.seed(test_config.random_seed)
 
     V = [0]  # Source
     node_id = {(0, 0): 0}

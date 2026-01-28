@@ -1,7 +1,22 @@
 # visualize.py
+import os
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+
+from config import mda_config
+
+
+def _save_or_show(filename):
+    """Save the figure to file or show it, based on config."""
+    if mda_config.show_plots:
+        plt.show()
+    else:
+        os.makedirs(mda_config.plot_dir, exist_ok=True)
+        path = os.path.join(mda_config.plot_dir, filename)
+        plt.savefig(path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f"Plot saved: {path}")
 
 
 def reconstruct_path_from_label(label):
@@ -10,7 +25,7 @@ def reconstruct_path_from_label(label):
     current = label
     while current is not None:
         path.append(current.node)
-        current = current.pred
+        current = current.label_pre
     return list(reversed(path))
 
 
@@ -77,7 +92,7 @@ def visualize_graph_with_labels(V, edge_cost, labels=None):
                    title="Pareto paths (cost vectors)", title_fontsize=11)
     plt.title("Pareto-optimal paths (Label-aware)")
     plt.subplots_adjust(left=0.1, right=0.95, top=0.92, bottom=0.08)
-    plt.show()
+    _save_or_show("pareto_paths_labels.png")
 
 
 def visualize_label_graph(L, target=None):
@@ -101,8 +116,8 @@ def visualize_label_graph(L, target=None):
 
     # Add edges from predecessor labels
     for label in all_labels:
-        if label.pred is not None:
-            G.add_edge(label.pred.id, label.id)
+        if label.label_pre is not None:
+            G.add_edge(label.label_pre.id, label.id)
 
     # If target specified, filter to only reachable labels
     if target is not None:
@@ -113,7 +128,7 @@ def visualize_label_graph(L, target=None):
             current = tl
             while current is not None:
                 reachable.add(current.id)
-                current = current.pred
+                current = current.label_pre
         G = G.subgraph(reachable).copy()
 
     plt.figure(figsize=(14, 10))
@@ -145,7 +160,7 @@ def visualize_label_graph(L, target=None):
 
     plt.title("Label Graph (nodes = labels, edges = predecessor relationships)")
     plt.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.05)
-    plt.show()
+    _save_or_show("label_graph.png")
 
 
 def visualize_graph(V, edge_cost, pareto_paths=None):
@@ -188,7 +203,7 @@ def visualize_graph(V, edge_cost, pareto_paths=None):
             )
 
     plt.title("Pareto-optimal paths")
-    plt.show()
+    _save_or_show("pareto_paths.png")
 
 def visualize_best_path_on_graph(V, edge_cost, highlight_path=None):
     """
@@ -226,4 +241,4 @@ def visualize_best_path_on_graph(V, edge_cost, highlight_path=None):
         )
 
     plt.title("Multiobjective Graph")
-    plt.show()
+    _save_or_show("graph.png")
